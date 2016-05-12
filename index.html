@@ -1,0 +1,32 @@
+<!doctype html>
+<html style="width: 100%; height: 100%; position: relative">
+<meta name="viewport" content="width=1920, initial-scale=1, maximum-scale=1">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>Stream as module</title>
+    <script src="/dronestream/nodecopter-client.js" type="text/javascript" charset="utf-8"></script>
+    <script src="/dronestream/nodecopter-stream.js"></script>
+    <script>
+    	function oriented(e) {
+    		if (!e.alpha) {
+		      return;
+		    }
+
+		    var req = new XMLHttpRequest();
+		    req.open("POST", "/action");
+			req.send(JSON.stringify({alpha: e.alpha, beta: e.beta, gamma: e.gamma}));
+    	}
+
+    	window.addEventListener('deviceorientation', oriented, true);
+    </script>
+</head>
+<body style="width: 100%; height: 100%; position: relative">
+    <div id="droneStream1" width=960 height=720 style="float:left;"></div>
+    <div id="droneStream2" width=960 height=720 style="float:left;"></div>
+
+    <script type="text/javascript" charset="utf-8">
+        new NodecopterStream([document.getElementById("droneStream1"),document.getElementById("droneStream2")]);
+        //new NodecopterStream();
+    </script>
+</body>
+</html>
