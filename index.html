@@ -1,32 +1,145 @@
 <!doctype html>
 <html style="width: 100%; height: 100%; position: relative">
-<meta name="viewport" content="width=1920, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=1920, user-scalable=no">
+<meta charset="utf-8">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8">
     <title>Stream as module</title>
     <script src="/dronestream/nodecopter-client.js" type="text/javascript" charset="utf-8"></script>
     <script src="/dronestream/nodecopter-stream.js"></script>
     <script>
-    	function oriented(e) {
-    		if (!e.alpha) {
-		      return;
-		    }
+        function getControlSocketURL() {
+            var loc = window.location, new_uri;
+            if (loc.protocol === "https:") {
+                new_uri = "wss:";
+            } else {
+                new_uri = "ws:";
+            }
+            new_uri += "//" + loc.host;
+            new_uri += loc.pathname + "control";
+            return new_uri;
+        }
 
-		    var req = new XMLHttpRequest();
-		    req.open("POST", "/action");
-			req.send(JSON.stringify({alpha: e.alpha, beta: e.beta, gamma: e.gamma}));
-    	}
+        var controlSocket = new WebSocket(getControlSocketURL());
 
-    	window.addEventListener('deviceorientation', oriented, true);
+        function oriented(e) {
+            if (!e.alpha) {
+                return;
+            }
+
+            controlSocket.send(JSON.stringify({type: 'orientation', alpha: e.alpha, beta: e.beta, gamma: e.gamma}));
+        }
+
+        window.addEventListener('deviceorientation', oriented, true);
+
+        // Gamepad
+        //var lastState = {buttons: [], axes: []};
+
+        var haveEvents = 'ongamepadconnected' in window;
+        var controllers = {};
+
+        function connecthandler(e) {
+            addgamepad(e.gamepad);
+        }
+
+        function addgamepad(gamepad) {
+            controllers[gamepad.index] = gamepad;
+            requestAnimationFrame(updateStatus);
+        }
+
+        function disconnecthandler(e) {
+            removegamepad(e.gamepad);
+        }
+
+        function removegamepad(gamepad) {
+            delete controllers[gamepad.index];
+        }
+
+        function updateStatus() {
+            if (!haveEvents) {
+                scangamepads();
+            }
+
+            var i = 0;
+            var j;
+
+            for (j in controllers) {
+                var controller = controllers[j];
+                var state = {buttons: [], axes: []};
+
+                for (i = 0; i < controller.buttons.length; i++) {
+                    var val = controller.buttons[i];
+
+                    if (typeof(val) == "object") {
+                        val = val.value;
+                    }
+
+                    state.buttons.push(val);
+                }
+
+                for (i = 0; i < controller.axes.length; i++) {
+                    state.axes.push(controller.axes[i]);
+                }
+
+                // Build a gamepad delta
+                /*var msg = {type: 'controller', buttons: {}, axes: {}};
+
+                var dirty=false;
+                for ( i=0; i < state.buttons.length; i++) {
+                    if (typeof(lastState.buttons[i]) == 'undefined' || lastState.buttons[i] != state.buttons[i]) {
+                        msg.buttons[i] = state.buttons[i];
+                        dirty=true;
+                    }
+                }
+                for ( i=0; i < state.axes.length; i++) {
+                    if (typeof(lastState.axes[i]) == 'undefined' || lastState.axes[i] != state.axes[i]) {
+                        msg.axes[i] = state.axes[i];
+                        dirty=true;
+                    }
+                }
+                lastState = state;*/
+                var msg = state;
+                msg.type = 'controller';
+
+                //if (dirty) {
+                    controlSocket.send(JSON.stringify(msg));
+                //}
+            }
+
+            requestAnimationFrame(updateStatus);
+        }
+
+        function scangamepads() {
+            var gamepads = navigator.getGamepads ? navigator.getGamepads() : (navigator.webkitGetGamepads ? navigator.webkitGetGamepads() : []);
+            for (var i = 0; i < gamepads.length; i++) {
+                if (gamepads[i]) {
+                    if (gamepads[i].index in controllers) {
+                        controllers[gamepads[i].index] = gamepads[i];
+                    } else {
+                        addgamepad(gamepads[i]);
+                    }
+                }
+            }
+        }
+
+
+        window.addEventListener("gamepadconnected", connecthandler);
+        window.addEventListener("gamepaddisconnected", disconnecthandler);
+
+        if (!haveEvents) {
+            setInterval(scangamepads, 500);
+        }
     </script>
 </head>
 <body style="width: 100%; height: 100%; position: relative">
-    <div id="droneStream1" width=960 height=720 style="float:left;"></div>
-    <div id="droneStream2" width=960 height=720 style="float:left;"></div>
+<div id="droneStream1" width=960 height=720 style="float:left;"></div>
+<div id="droneStream2" width=960 height=720 style="float:left;"></div>
 
-    <script type="text/javascript" charset="utf-8">
-        new NodecopterStream([document.getElementById("droneStream1"),document.getElementById("droneStream2")]);
-        //new NodecopterStream();
-    </script>
+<script type="text/javascript" charset="utf-8">
+    new NodecopterStream([document.getElementById("droneStream1"),document.getElementById("droneStream2")]);
+    //new NodecopterStream();
+</script>
 </body>
 </html>
